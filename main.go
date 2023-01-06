@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
@@ -17,20 +19,46 @@ func main() {
 		fmt.Printf("Failed to create producer: %s\n", err)
 
 	}
+	topic := "HVSE"
+
+	go func() {
+		consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
+			"bootstrap.servers": "localhost:9092",
+			"group.id":          "foo",
+			"auto.offset.reset": "smallest"})
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = consumer.Subscribe(topic, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for {
+			ev := consumer.Poll(100)
+			switch e := ev.(type) {
+			case *kafka.Message:
+				fmt.Printf("Consumed message from the que : %s\n", string(e.Value))
+			}
+		}
+	}()
 
 	delivery_chan := make(chan kafka.Event, 10000)
-	topic:= "HVSE"
-	err = p.Produce(&kafka.Message{
-    TopicPartition: kafka.TopicPartition{Topic: topic, Partition: kafka.PartitionAny},
-    Value: []byte("Foo")},
-    delivery_chan,
-)
-	if err!=nil{
-		log.Fatal(err)
-	}
-	e:= <-delivery_chan
 
-	f
-	fmt.Printf("%+v/n", p)
+	for {
+		err = p.Produce(&kafka.Message{
+			TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+			Value:          []byte("Foo")},
+			delivery_chan,
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+		<-delivery_chan
+
+		time.Sleep(time.Second * 2)
+
+	}
 
 }
